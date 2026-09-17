@@ -20,5 +20,9 @@ private:
 	void inicializarFormas();
 public:
 	Pieza(TipoPieza tipo);
+	
+	void rotar();
+	void mostrarForma() const;
 };
+
 #endif
