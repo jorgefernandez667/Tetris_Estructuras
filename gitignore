@@ -1,0 +1,6 @@
+# Archivos generados por ZinjaI / compilador
+*.o
+*.exe
+*.dll
+Temp/
+*.zpr.bak
