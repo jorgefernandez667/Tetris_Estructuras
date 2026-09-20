@@ -92,9 +92,6 @@ cursor=0:0
 path=Interfaz.h
 cursor=0:0
 open=true
-[other]
-path=Leeme.txt
-cursor=4:447
 [config]
 name=Debug_Win32
 toolchain=
