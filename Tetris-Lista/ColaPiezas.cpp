@@ -1,5 +1,5 @@
 #include "ColaPiezas.h"
-#include <cstdlib> 
+#include <cstdlib>   // rand
 
 ColaPiezas::ColaPiezas() {
     frente = 0;
@@ -40,10 +40,24 @@ void ColaPiezas::generarBolsa() {
     for (int i = 0; i < NUM_PIEZAS; i++) bolsa[i] = i;
 
     for (int i = NUM_PIEZAS - 1; i > 0; i--) {
-        int j = rand() % (i + 1);    
+        int j = rand() % (i + 1);        // 0..i
         int tmp = bolsa[i];
         bolsa[i] = bolsa[j];
         bolsa[j] = tmp;
     }
     for (int i = 0; i < NUM_PIEZAS; i++) encolar(bolsa[i]);
+}
+
+// ---------- soporte para el replay ----------
+
+int ColaPiezas::copiarA(int destino[]) const {
+    for (int i = 0; i < n; i++) destino[i] = ver(i);
+    return n;
+}
+
+void ColaPiezas::cargarDesde(const int origen[], int cantidad) {
+    frente = 0;
+    fin    = 0;
+    n      = 0;
+    for (int i = 0; i < cantidad; i++) encolar(origen[i]);
 }
