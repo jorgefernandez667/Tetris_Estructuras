@@ -94,6 +94,20 @@ int Tablero::limpiarLineas() {
     return eliminadas;
 }
 
+// Elimina UNA fila cualquiera (la usa la pieza especial). Mismo orden que limpiarLineas:
+// primero reconectar, despues liberar.  Costo: O(f) para llegar al nodo, O(1) para quitarlo.
+bool Tablero::eliminarFila(int f) {
+    if (f < 0 || f >= FILAS) return false;
+    Fila* ant = nullptr;
+    Fila* act = inicio;
+    for (int i = 0; i < f; i++) { ant = act; act = act->sig; }
+    if (ant == nullptr) inicio = act->sig;   // era la cabeza
+    else                ant->sig = act->sig; // reconectar
+    delete act;                              // liberar de ultimo
+    insertarFilaVaciaAlInicio();             // se mantiene el invariante: siempre 20 nodos
+    return true;
+}
+
 // ---------- soporte para el replay ----------
 
 void Tablero::exportar(int destino[FILAS][COLUMNAS]) const {

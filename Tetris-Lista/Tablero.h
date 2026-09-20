@@ -27,6 +27,7 @@ public:
     bool colisiona(const Pieza& p) const;   // true si algun bloque se sale o cae en celda ocupada
     void fijar(const Pieza& p);             // escribe los 4 bloques en el tablero
     int  limpiarLineas();                   // elimina filas completas, devuelve cuantas
+    bool eliminarFila(int f);               // elimina la fila f (aunque no este completa) e inserta una vacia arriba
     int  contarFilas() const;               // para verificar la invariante (siempre FILAS)
 
     // Para el replay: copiar el contenido a/desde un arreglo (no crea ni borra nodos).

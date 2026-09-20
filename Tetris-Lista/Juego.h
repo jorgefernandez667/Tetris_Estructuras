@@ -1,13 +1,3 @@
-// Juego.h
-// Logica del juego (sin SFML): junta Tablero, ColaPiezas y PilaHold.
-// Aqui viven las reglas: mover, rotar, bajar, hold, fijar pieza, puntaje y game over.
-//
-// INVARIANTES
-//   - mientras !gameOver: la pieza 'actual' NO colisiona con el tablero
-//   - el tablero siempre tiene FILAS nodos (lo garantiza Tablero)
-//   - holdUsado == true  <=>  ya se uso el hold con la pieza actual (solo se permite una vez por pieza)
-//   - puntaje y lineas nunca disminuyen
-//   - gameOver == true  =>  toda accion devuelve false y no cambia nada
 #ifndef JUEGO_H
 #define JUEGO_H
 
@@ -16,21 +6,37 @@
 #include "Tablero.h"
 #include "ColaPiezas.h"
 #include "PilaHold.h"
+#include "ColaEventos.h"
+#include "Estado.h"
+#include "Replay.h"
 
 class Juego {
 private:
-    Tablero    tablero;
-    ColaPiezas cola;
-    PilaHold   hold;
-    Pieza      actual;
-    bool       holdUsado;
-    int        puntaje;
-    int        lineas;
-    bool       gameOver;
+    Tablero     tablero;
+    ColaPiezas  cola;
+    PilaHold    hold;
+    ColaEventos eventos;
+    Replay      historial;
 
-    void sacarSiguiente();   // la siguiente de la cola pasa a ser la pieza actual
-    void aparecer(int tipo); // crea la pieza en su posicion inicial; si no cabe -> game over
-    void colocar();          // fija la pieza, limpia lineas, suma puntos y saca la siguiente
+    Pieza actual;
+    bool  actualEspecial;      // esta pieza limpia una fila al colocarse
+    bool  especialPendiente;   // (interno) la proxima pieza en aparecer sera especial
+    bool  holdUsado;
+    int   puntaje;
+    int   lineas;
+    int   piezasColocadas;     // el "reloj" de los eventos
+    int   nivel;               // 1..NIVEL_MAX: velocidad de caida
+    int   bonusRestante;       // piezas que aun dan puntos dobles
+    bool  gameOver;
+
+    void aparecer(int tipo);        // crea la pieza; si no cabe -> game over
+    void sacarSiguiente();          // la siguiente de la cola pasa a ser la actual
+    bool intentarBajar();           // true si bajo; false si no pudo y COLOCO la pieza (no registra)
+    void colocar();                 // fija, limpia lineas, puntua, dispara eventos, saca la siguiente
+    void programar(int tipo, int momento);
+    void dispararEventos();         // aplica los eventos cuyo momento ya llego
+    void aplicarEvento(const Evento& e);
+    void registrar(int accion);     // agrega un nodo al historial con la foto actual
 
 public:
     Juego();
@@ -40,17 +46,32 @@ public:
     bool moverDerecha();
     bool rotar();            // 4 orientaciones precalculadas; si no hay espacio, no rota
     bool bajar();            // baja una fila. Si no puede, FIJA la pieza y devuelve false
-    void caidaDura();        // baja hasta el fondo y fija
-    bool usarHold();         // guarda la pieza actual (o la intercambia); una vez por pieza
+    void caidaDura();        // baja hasta el fondo y fija (un solo paso del historial)
+    bool usarHold();         // guarda/intercambia la pieza actual; una vez por pieza; no vale con la especial
 
-    // Consultas (para dibujar y para las pruebas)
+    // Deshacer / rehacer VARIOS pasos usando la lista doble. Devuelven cuantos pasos dieron.
+    int  deshacer(int pasos);
+    int  rehacer(int pasos);
+
+    // Fotos del estado (para el historial, las pruebas y para dibujar)
+    Estado tomarEstado() const;
+    void   cargarEstado(const Estado& e);
+
+    // Consultas
     const Tablero& getTablero() const;
-    Pieza getActual() const;
-    int   holdActual() const;        // tipo guardado, o -1 si esta vacio
-    int   siguiente(int i) const;    // i-esima pieza de la cola (0 = la proxima)
-    int   getPuntaje() const;
-    int   getLineas() const;
-    bool  esGameOver() const;
+    Pieza  getActual() const;
+    bool   esEspecial() const;
+    int    holdActual() const;        // tipo guardado, o -1 si esta vacio
+    int    siguiente(int i) const;    // i-esima pieza de la cola (0 = la proxima)
+    int    getPuntaje() const;
+    int    getLineas() const;
+    int    getNivel() const;
+    int    getPiezasColocadas() const;
+    int    getBonusRestante() const;
+    int    intervaloCaidaMs() const;  // cada cuantos milisegundos debe caer la pieza (segun el nivel)
+    Evento proximoEvento() const;     // el evento del frente de la cola ({-1,-1} si no hay)
+    bool   esGameOver() const;
+    Replay& getHistorial();           // para reproducir la partida al terminar
 };
 
 #endif
