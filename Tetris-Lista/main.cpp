@@ -1,128 +1,90 @@
 #include <SFML/Graphics.hpp>
 using namespace sf;
-// Escriba comandos y presione Enter. Puede escribir varios seguidos, por ejemplo: aaws
-//   a = izquierda   d = derecha   w = rotar   s = bajar una fila
-//   x = caida dura  c = hold
-//   u = deshacer 1 paso    U = deshacer 5 pasos
-//   r = rehacer 1 paso     R = rehacer 5 pasos
-//   q = salir
-// Al terminar la partida se entra al modo REPLAY:  n = siguiente, p = anterior, f = primero, l = ultimo, q = salir
+
 #include <iostream>
-#include <string>
+#include <iomanip>
+#include <fstream>
+#include <chrono>
 #include <cstdlib>
 #include <ctime>
-#include "Juego.h"
+#include "Ordenamiento.h"
 using namespace std;
 
-const char* nombreAccion(int a) {
-	switch (a) {
-	case ACC_INICIO:  return "inicio";
-	case ACC_MOVER:   return "mover";
-	case ACC_ROTAR:   return "rotar";
-	case ACC_BAJAR:   return "bajar";
-	case ACC_COLOCAR: return "colocar";
-	case ACC_HOLD:    return "hold";
-	}
-	return "?";
+typedef chrono::steady_clock Reloj;
+
+double segundosDesde(Reloj::time_point t0) {
+	return chrono::duration<double>(Reloj::now() - t0).count();
 }
 
-const char* nombreEvento(int t) {
-	switch (t) {
-	case EVENTO_ACELERAR:        return "acelerar";
-	case EVENTO_PIEZA_ESPECIAL:  return "pieza especial";
-	case EVENTO_PUNTOS_DOBLES:   return "puntos dobles";
-	}
-	return "-";
-}
-
-// Dibuja una foto del juego (sirve igual para la partida en vivo y para el replay)
-void dibujar(const Estado& e) {
-	char cuadro[FILAS][COLUMNAS];
-	for (int f = 0; f < FILAS; f++)
-		for (int c = 0; c < COLUMNAS; c++)
-			cuadro[f][c] = (e.tablero[f][c] > 0) ? letraDe(e.tablero[f][c] - 1) : '.';
-			if (!e.gameOver) {                                   // pieza en juego: '*' normal, '@' especial
-				for (int i = 0; i < NUM_BLOQUES; i++) {
-					Bloque b = bloqueDe(e.actual, i);
-					cuadro[b.fila][b.col] = e.actualEspecial ? '@' : '*';
-				}
-			}
-			
-			cout << "\n";
-			for (int f = 0; f < FILAS; f++) {
-				cout << "|";
-				for (int c = 0; c < COLUMNAS; c++) cout << cuadro[f][c];
-				cout << "|";
-				if (f == 0) cout << "  Puntaje: " << e.puntaje << "   Lineas: " << e.lineas << "   Nivel: " << e.nivel;
-				if (f == 1) {
-					cout << "  Piezas colocadas: " << e.piezasColocadas;
-					if (e.bonusRestante > 0) cout << "   [PUNTOS DOBLES: " << e.bonusRestante << " piezas]";
-				}
-				if (f == 2) { cout << "  Siguientes: ";
-				for (int i = 0; i < 3 && i < e.nColaPiezas; i++) cout << letraDe(e.colaPiezas[i]) << " "; }
-				if (f == 4) { cout << "  Hold: ";
-				if (e.holdTipo >= 0) cout << letraDe(e.holdTipo); else cout << "-"; }
-				if (f == 6 && e.nEventos > 0)
-					cout << "  Proximo evento: " << nombreEvento(e.eventos[0].tipo) << " (en la pieza " << e.eventos[0].momento << ")";
-				if (f == 7 && e.actualEspecial) cout << "  << PIEZA ESPECIAL: limpia una fila al colocarse >>";
-				cout << "\n";
-			}
-			cout << "+----------+\n";
-}
-
-void modoReplay(Juego& juego) {
-	Replay& r = juego.getHistorial();
-	r.irAlPrimero();
-	string linea;
+// Tiempo medio, en microsegundos, de UN ordenamiento de los n registros de 'base'.
+// Se repite hasta acumular al menos 0.25 s (asi el reloj de Windows, que es grueso, no molesta)
+// y se resta el tiempo de las copias, que hay que hacer para reordenar siempre datos desordenados.
+double microsPorOrdenamiento(int algoritmo, const Registro base[], int n) {
+	Registro* trabajo = new Registro[n];
+	long repeticiones = 1;
+	double total = 0;
 	while (true) {
-		dibujar(r.estadoActual());
-		cout << "REPLAY  paso " << r.posicion() << " de " << (r.tamano() - 1)
-			<< "  (accion: " << nombreAccion(r.accionActual()) << ")\n";
-		cout << "[n]siguiente [p]anterior [f]primero [l]ultimo [q]salir > ";
-		if (!getline(cin, linea) || linea.empty()) { if (cin.eof()) return; continue; }
-		for (size_t i = 0; i < linea.size(); i++) {
-			switch (linea[i]) {
-			case 'n': r.avanzar();      break;
-			case 'p': r.retroceder();   break;
-			case 'f': r.irAlPrimero();  break;
-			case 'l': r.irAlUltimo();   break;
-			case 'q': return;
-			}
+		Reloj::time_point t0 = Reloj::now();
+		for (long r = 0; r < repeticiones; r++) {
+			copiarRegistros(trabajo, base, n);
+			ordenar(trabajo, n, algoritmo);
 		}
+		total = segundosDesde(t0);
+		if (total >= 0.25 || repeticiones >= (1L << 26)) break;
+		repeticiones *= 2;
 	}
+	Reloj::time_point t1 = Reloj::now();
+	for (long r = 0; r < repeticiones; r++) copiarRegistros(trabajo, base, n);
+	double soloCopias = segundosDesde(t1);
+	delete[] trabajo;
+	double neto = total - soloCopias;
+	if (neto < 0) neto = 0;
+	return neto / repeticiones * 1e6;
 }
 
 int main() {
-	srand((unsigned)time(NULL));
-	Juego juego;
-	string linea;
+	srand(12345);                                    // semilla fija: mismos datos en cada corrida
+	const int TAMANOS[] = { 10, 100, 1000, 10000 };
+	const int CANTIDAD = 4;
 	
-	dibujar(juego.tomarEstado());
-	while (!juego.esGameOver()) {
-		cout << "> ";
-		if (!getline(cin, linea)) return 0;
-		bool salir = false;
-		for (size_t i = 0; i < linea.size(); i++) {
-			switch (linea[i]) {
-			case 'a': juego.moverIzquierda(); break;
-			case 'd': juego.moverDerecha();   break;
-			case 'w': juego.rotar();          break;
-			case 's': juego.bajar();          break;
-			case 'x': juego.caidaDura();      break;
-			case 'c': juego.usarHold();       break;
-			case 'u': juego.deshacer(1);      break;
-			case 'U': juego.deshacer(5);      break;
-			case 'r': juego.rehacer(1);       break;
-			case 'R': juego.rehacer(5);       break;
-			case 'q': salir = true;           break;
-			}
-		}
-		if (salir) return 0;
-		dibujar(juego.tomarEstado());
+	ofstream csv("benchmark_ordenamiento.csv");
+	csv << "n,insercion_us,merge_us\n";
+	
+	cout << "Ordenar n registros aleatorios de mayor a menor (tiempo por ordenamiento)\n\n";
+	cout << setw(8) << "n" << setw(18) << "insercion (us)" << setw(16) << "merge (us)"
+		<< setw(17) << "insercion/merge" << setw(20) << "x insercion vs n/10" << setw(16) << "x merge vs n/10" << "\n";
+	cout << string(95, '-') << "\n";
+	
+	double antesIns = 0, antesMer = 0;
+	for (int t = 0; t < CANTIDAD; t++) {
+		int n = TAMANOS[t];
+		Registro* base = new Registro[n];
+		for (int i = 0; i < n; i++) { copiarNombre(base[i], "Jugador"); base[i].puntaje = 1 + rand() % 100000; }
+		
+		// Comprobar primero que los dos dan el mismo resultado y estan ordenados
+		Registro* a = new Registro[n];
+		Registro* b = new Registro[n];
+		copiarRegistros(a, base, n); copiarRegistros(b, base, n);
+		ordenarInsercion(a, n); ordenarMerge(b, n);
+		bool iguales = estaOrdenado(a, n) && estaOrdenado(b, n);
+		for (int i = 0; i < n; i++) if (a[i].puntaje != b[i].puntaje) iguales = false;
+		if (!iguales) { cout << "ERROR: los algoritmos no coinciden para n=" << n << "\n"; return 1; }
+		delete[] a; delete[] b;
+		
+		double ins = microsPorOrdenamiento(ALG_INSERCION, base, n);
+		double mer = microsPorOrdenamiento(ALG_MERGE, base, n);
+		delete[] base;
+		
+		cout << setw(8) << n << fixed << setprecision(2) << setw(18) << ins << setw(16) << mer
+			<< setw(17) << (mer > 0 ? ins / mer : 0.0);
+		if (t > 0) cout << setw(20) << (antesIns > 0 ? ins / antesIns : 0.0) << setw(16) << (antesMer > 0 ? mer / antesMer : 0.0);
+		cout << "\n";
+		csv << n << "," << ins << "," << mer << "\n";
+		antesIns = ins; antesMer = mer;
 	}
+	csv.close();
 	
-	cout << "\nGAME OVER  -  puntaje final: " << juego.getPuntaje() << "\n";
-	cout << "Entrando al modo replay...\n";
-	modoReplay(juego);
+	cout << "\nPrediccion teorica al multiplicar n por 10:  insercion x100 (n^2),  merge poco mas de x10 (n log n).\n";
+	cout << "Datos guardados en benchmark_ordenamiento.csv\n";
 	return 0;
 }
