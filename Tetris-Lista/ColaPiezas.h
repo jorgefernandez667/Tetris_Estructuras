@@ -1,4 +1,3 @@
-// ColaPiezas.h
 // Cola FIFO de piezas futuras, con arreglo circular propio (sin std::queue).
 //
 // INVARIANTES
