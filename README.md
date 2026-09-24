@@ -17,7 +17,7 @@ Versión simplificada de Tetris en C++ con interfaz gráfica en **SFML**. Cada m
 |Lenguaje|C++11 o superior (se usan `nullptr` y `= delete`)|
 |IDE / compilador|ZinjaI (MinGW) en Windows|
 |Librería gráfica|**SFML 2.x** (módulos `graphics`, `window`, `system`)|
-|Versiones probadas|SFML 2.4.2 de 32 bits en ZinjaI/Windows; SFML 2.6.1 con g++ 13 en Linux (compila sin advertencias con `-Wall`)|
+|Versiones probadas|SFML 2.4.2 de 32 bits en ZinjaI/Windows;|
 |Fuente|`fuente.ttf` junto al ejecutable|
 
 > No es compatible con SFML 3: el código usa la API de eventos y de `sf::VideoMode` de la serie 2.x.
