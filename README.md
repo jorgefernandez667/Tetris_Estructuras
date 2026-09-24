@@ -4,7 +4,7 @@
 Universidad Nacional de Costa Rica, Sede Regional Brunca
 
 **Autor:** Jorge Fernández Miranda · **Cédula:** 604770610
-**Repositorio:** https://github.com/jorgefernandez667/Tetris\_Estructuras
+**Repositorio:** https://github.com/jorgefernandez667/Tetris_Estructuras
 
 Versión simplificada de Tetris en C++ con interfaz gráfica en **SFML**. Cada mecánica del juego se resuelve con una estructura de datos propia (sin `std::stack`, `std::queue`, `std::deque`, `std::list`, `std::priority\_queue` ni `std::sort`).
 
